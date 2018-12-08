@@ -1,57 +1,67 @@
+use std::str::FromStr;
+
+struct Node {
+    metadata: Vec<usize>,
+    children: Vec<Node>,
+}
+
+impl Node {
+    fn from_iter(iter: &mut Iterator<Item = usize>) -> Option<Node> {
+        let child_count = iter.next()?;
+        let meta_count = iter.next()?;
+
+        let children = (0..child_count)
+            .map(|_| Node::from_iter(iter))
+            .collect::<Option<_>>()?;
+
+        let metadata: Vec<_> = iter.take(meta_count).collect();
+
+        if metadata.len() == meta_count {
+            Some(Node { children, metadata })
+        } else {
+            None
+        }
+    }
+
+    fn part_1(&self) -> usize {
+        self.metadata.iter().sum::<usize>() + self.children.iter().map(Node::part_1).sum::<usize>()
+    }
+
+    fn part_2(&self) -> usize {
+        if self.children.is_empty() {
+            self.metadata.iter().sum()
+        } else {
+            self.children
+                .iter()
+                .enumerate()
+                .map(
+                    |(i, c)| match self.metadata.iter().filter(|m| **m == i + 1).count() {
+                        0 => 0,
+                        count => count * c.part_2(),
+                    },
+                )
+                .sum()
+        }
+    }
+}
+
+impl FromStr for Node {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut iter = s
+            .split_whitespace()
+            .map(|s| s.parse())
+            .take_while(Result::is_ok)
+            .flatten();
+        Node::from_iter(&mut iter).ok_or("parse error")
+    }
+}
+
 fn main() {
     let input = include_str!("../input").trim();
+    let root: Node = input.parse().unwrap();
 
-    let input: Vec<usize> = input
-        .split_whitespace()
-        .map(|s| s.parse().unwrap())
-        .collect();
-
-    println!("{}", part_1(&input).1);
-    println!("{}", part_2(&input).1);
-}
-
-fn part_1(input: &[usize]) -> (usize, usize) {
-    let child_count = input[0];
-    let meta_count = input[1];
-
-    let mut meta = 0;
-    let mut len = 2;
-
-    for _ in 0..child_count {
-        let (child_len, child_meta) = part_1(&input[len..]);
-        len += child_len;
-        meta += child_meta;
-    }
-
-    meta += input[len..len + meta_count].iter().sum::<usize>();
-
-    (len + meta_count, meta)
-}
-
-fn part_2(input: &[usize]) -> (usize, usize) {
-    let child_count = input[0];
-    let meta_count = input[1];
-
-    let mut meta = 0;
-    let mut len = 2;
-
-    if child_count > 0 {
-        let mut children = Vec::with_capacity(child_count);
-
-        for _ in 0..child_count {
-            let (child_len, child_meta) = part_2(&input[len..]);
-            len += child_len;
-            children.push(child_meta);
-        }
-
-        meta += input[len..len + meta_count]
-            .iter()
-            .filter(|&idx| *idx > 0)
-            .map(|&idx| children.get(idx - 1).unwrap_or(&0))
-            .sum::<usize>();
-    } else {
-        meta += input[len..len + meta_count].iter().sum::<usize>();
-    }
-
-    (len + meta_count, meta)
+    println!("{}", root.part_1());
+    println!("{}", root.part_2());
 }
